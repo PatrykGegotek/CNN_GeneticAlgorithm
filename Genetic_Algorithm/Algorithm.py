@@ -1,6 +1,7 @@
 import numpy as np
 from keras.models import Sequential
 from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
+from DataLoader.Data_Loader import load_and_scale_images
 import tensorflow as tf
 
 # Definicja podstawowej architektury sieci
@@ -21,17 +22,19 @@ def initialize_population(size):
     return [create_cnn() for _ in range(size)]
 
 
-# Ocena sieci
-def evaluate_networks(networks, x_test, y_test):
+# Funkcja oceny sieci z użyciem generatora danych
+def evaluate_networks_with_generator(networks, data_generator, num_samples):
     scores = []
     for network in networks:
-        # Zakładając, że x_test i y_test są już odpowiednio przetworzone
-        predictions = network.predict(x_test)
-        # Prognozy mogą być w formacie [0.9, 0.2, 0.7, ...], więc konwertujemy je na etykiety klas
-        predictions = [1 if p > 0.5 else 0 for p in predictions]
+        # Wczytanie wszystkich danych do tablicy
+        x_all, y_all = next(data_generator, num_samples)
 
-        # Obliczenie dokładności - procent poprawnych przewidywań
-        accuracy = sum(predictions == y_test) / len(y_test)
+        # Predykcja na całym zbiorze danych
+        predictions = network.predict(x_all)
+        predictions = [1 if p > 0.5 else 0 for p in predictions.flatten()]
+
+        # Obliczenie dokładności
+        accuracy = np.mean(predictions == y_all)
         scores.append(accuracy)
 
     return scores
@@ -68,14 +71,13 @@ def mutate(network, mutation_rate=0.01, mutation_amount=0.1):
     return network
 
 
-# Główna pętla algorytmu genetycznego
-def genetic_algorithm(x_test, y_test, generations, population_size, num_best):
+def genetic_algorithm(data_generator, generations, population_size, num_best):
     # Inicjalizacja populacji
     population = initialize_population(population_size)
 
     for generation in range(generations):
-        # Ocena każdej sieci w populacji
-        scores = evaluate_networks(population, x_test, y_test)
+        # Ocena każdej sieci w populacji na podstawie danych z generatora
+        scores = evaluate_networks_with_generator(population, data_generator, 4000)
 
         # Wybór najlepszych sieci
         best_networks = select_best(population, scores, num_best)
@@ -87,9 +89,8 @@ def genetic_algorithm(x_test, y_test, generations, population_size, num_best):
         for network in best_networks:
             new_population.append(mutate(network))
 
-        # Uzupełnienie nowej populacji losowo zmutowanymi sieciami do osiągnięcia początkowej wielkości populacji
+        # Uzupełnienie nowej populacji losowo zmutowanymi sieciami
         while len(new_population) < population_size:
-            # Można wybrać losową sieć z najlepszych i zmutować ją
             random_best = np.random.choice(best_networks)
             new_population.append(mutate(random_best))
 
@@ -99,12 +100,13 @@ def genetic_algorithm(x_test, y_test, generations, population_size, num_best):
         print(f"Generation {generation + 1}/{generations} completed.")
 
     # Zwracanie najlepszej sieci z ostatniej generacji
-    final_scores = evaluate_networks(population, x_test, y_test)
+    final_scores = evaluate_networks_with_generator(population, data_generator, 4000)
     best_network = select_best(population, final_scores, 1)[0]
 
     return best_network
 
 
-# Uruchomienie algorytmu
-# x_test, y_test - Twoje dane testowe
-best_network = genetic_algorithm(x_test, y_test, 10, 20, 5)
+if __name__ == "__main__":
+    # Uruchomienie algorytmu
+    data_generator = load_and_scale_images('Data')
+    best_network = genetic_algorithm(data_generator, 10, 20, 5)
