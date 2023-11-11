@@ -70,6 +70,23 @@ def mutate(network, mutation_rate=0.01, mutation_amount=0.1):
         layer.set_weights(new_weights)
     return network
 
+# Krzyżowanie dwóch sieci
+def crossover(parent1, parent2):
+    child=create_cnn()
+    for i in range(len(parent1.layers)):
+        if not parent1.layers[i].get_weights():
+            continue
+        # Maski dla wag właściwych 
+        mask0=np.random.random(np.shape(parent1.layers[i].get_weights()[0])) < 0.5
+        mask0_neg = np.logical_not(mask0)
+        # Maski dla biasu 
+        mask1=np.random.random(np.shape(parent1.layers[i].get_weights()[1])) < 0.5
+        mask1_neg = np.logical_not(mask1)
+        # Ustawienie wag
+        child.layers[i].set_weights([mask0*parent1.layers[i].get_weights()[0]+mask0_neg*parent2.layers[i].get_weights()[0], # wagi właściwe
+                                     mask1*parent1.layers[i].get_weights()[1]+mask1_neg*parent2.layers[i].get_weights()[1]]) # bias
+    return child
+
 
 def genetic_algorithm(data_generator, generations, population_size, num_best):
     # Inicjalizacja populacji
