@@ -14,6 +14,7 @@ def create_cnn():
     model.add(Flatten())
     model.add(Dense(48, activation='relu'))
     model.add(Dense(1, activation='sigmoid'))
+    model.compile(loss='binary_crossentropy',metrics=['acc'])
     return model
 
 
@@ -23,20 +24,10 @@ def initialize_population(size):
 
 
 # Funkcja oceny sieci z użyciem generatora danych
-def evaluate_networks_with_generator(networks, data_generator, num_samples):
+def evaluate_networks_with_generator(networks, data_generator):
     scores = []
     for network in networks:
-        # Wczytanie wszystkich danych do tablicy
-        x_all, y_all = next(data_generator, num_samples)
-
-        # Predykcja na całym zbiorze danych
-        predictions = network.predict(x_all)
-        predictions = [1 if p > 0.5 else 0 for p in predictions.flatten()]
-
-        # Obliczenie dokładności
-        accuracy = np.mean(predictions == y_all)
-        scores.append(accuracy)
-
+        scores.append(network.evaluate(data_generator)[1])
     return scores
 
 
@@ -94,7 +85,7 @@ def genetic_algorithm(data_generator, generations, population_size, num_best):
 
     for generation in range(generations):
         # Ocena każdej sieci w populacji na podstawie danych z generatora
-        scores = evaluate_networks_with_generator(population, data_generator, 4000)
+        scores = evaluate_networks_with_generator(population, data_generator)
 
         # Wybór najlepszych sieci
         best_networks = select_best(population, scores, num_best)
@@ -117,7 +108,7 @@ def genetic_algorithm(data_generator, generations, population_size, num_best):
         print(f"Generation {generation + 1}/{generations} completed.")
 
     # Zwracanie najlepszej sieci z ostatniej generacji
-    final_scores = evaluate_networks_with_generator(population, data_generator, 4000)
+    final_scores = evaluate_networks_with_generator(population, data_generator)
     best_network = select_best(population, final_scores, 1)[0]
 
     return best_network
