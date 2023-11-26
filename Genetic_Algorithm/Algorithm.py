@@ -3,7 +3,7 @@ from keras.models import Sequential
 from keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
 from DataLoader.Data_Loader import load_and_scale_images
 import tensorflow as tf
-
+import matplotlib.pyplot as plt
 
 # Definicja podstawowej architektury sieci
 def create_cnn():
@@ -26,12 +26,14 @@ def initialize_population(size):
 
 # Funkcja oceny sieci z użyciem generatora danych
 def evaluate_networks_with_generator(networks, data_generator):
-    scores = []
+    losses = []
+    accuracies = []
     for i, network in enumerate(networks, start=1):
         print(f"Evaluating network {i}")
         score = network.evaluate(data_generator)
-        scores.append(score[0])
-    return scores
+        losses.append(score[0])
+        accuracies.append(score[1])
+    return losses, accuracies
 
 
 # Selekcja najlepszych sieci
@@ -89,14 +91,19 @@ def crossover(parent1, parent2):
 def genetic_algorithm(data_generator, generations, population_size, num_best):
     # Inicjalizacja populacji
     population = initialize_population(population_size)
+    best_losses = []
+    best_accuracies = []
 
     for i, generation in enumerate(range(generations), start=1):
         print(f"Generation {i}:")
         # Ocena każdej sieci w populacji na podstawie danych z generatora
-        scores = evaluate_networks_with_generator(population, data_generator)
+        losses, accuracies = evaluate_networks_with_generator(population, data_generator)
+
+        best_losses.append(np.min(np.array(losses)))
+        best_accuracies.append(np.max(np.array(accuracies)))
 
         # Wybór najlepszych sieci
-        best_networks = select_best(population, scores, num_best)
+        best_networks = select_best(population, losses, num_best)
 
         print(len(best_networks))
         # Tworzenie nowej populacji
@@ -118,13 +125,36 @@ def genetic_algorithm(data_generator, generations, population_size, num_best):
         print(f"Generation {i} completed.")
 
     # Zwracanie najlepszej sieci z ostatniej generacji
-    final_scores = evaluate_networks_with_generator(population, data_generator)
-    best_network = select_best(population, final_scores, 1)[0]
+    losses, accuracies = evaluate_networks_with_generator(population, data_generator)
+    best_losses.append(np.min(np.array(losses)))
+    best_accuracies.append(np.max(np.array(accuracies)))
+    best_network = select_best(population, losses, 1)[0]
 
-    return best_network
+    return best_network, best_losses, best_accuracies
 
 
 if __name__ == "__main__":
     # Uruchomienie algorytmu
-    data_generator = load_and_scale_images('Data')
-    best_network = genetic_algorithm(data_generator, 10, 20, 5)
+    data_generator = load_and_scale_images('../Data')
+    best_network, losses, accuracies = genetic_algorithm(data_generator, 50, 100, 3)
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(8, 6))
+
+    # Plot accuracies
+    ax1.plot(range(len(accuracies)), accuracies, marker='o', linestyle='-', color='b', label='Accuracy')
+    ax1.set_ylabel('Accuracy')
+    ax1.set_title('Model Accuracy Over Time')
+    ax1.legend()
+
+    # Plot losses
+    ax2.plot(range(len(losses)), losses, marker='o', linestyle='-', color='r', label='Loss')
+    ax2.set_xlabel('Epoch')
+    ax2.set_ylabel('Loss')
+    ax2.set_title('Model Loss Over Time')
+    ax2.legend()
+
+    # Adjust spacing between subplots
+    plt.tight_layout()
+
+    # Show the plots
+    plt.show()
